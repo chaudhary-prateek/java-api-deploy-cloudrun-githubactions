@@ -81,7 +81,7 @@ jobs:
       - name: Set Dummy Version for Testing
         id: get_release
         run: |
-          echo "version=0.0.1-test" >> $GITHUB_OUTPUT
+          echo "version=latest" >> $GITHUB_OUTPUT
 
 
       # Step 10: Build and push Docker image
