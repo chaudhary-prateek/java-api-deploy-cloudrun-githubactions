@@ -91,10 +91,6 @@ jobs:
       - name: Print merged.env
         run: cat -A merged.env
 
-      - name: Debug Environment
-        run: env | grep DEV_
-
-
 
       # Step 7: Authenticate with GCP for deployment
       - name: Authenticate with GCP for deploy
