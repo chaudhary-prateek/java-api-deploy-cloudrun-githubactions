@@ -47,7 +47,7 @@ jobs:
       - name: Retrieve and prepare env-vars file
         run: |
           # Download merged .env file from Secret Manager
-          gcloud secrets versions access latest --secret=dev-ih-ai-merged-env > merged.env
+          gcloud secrets versions access latest --secret=common > merged.env
 
           # Export important variables to GITHUB_ENV
           source merged.env
