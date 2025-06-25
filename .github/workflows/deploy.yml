@@ -51,19 +51,26 @@ jobs:
       # Step 6: Retrieve and prepare env-vars file
       - name: Retrieve and prepare env-vars file
         run: |
-          # Download secret and remove Windows-style line endings
-          gcloud secrets versions access latest --secret=common | tr -d '\r' > merged.env
-          gcloud secrets versions access latest --secret=lang-api | tr -d '\r' > merged.env
+          # Merge common and service-specific secrets, removing carriage returns and trailing whitespace
+          {
+            gcloud secrets versions access latest --secret=common
+            gcloud secrets versions access latest --secret=lang-api
+          } | tr -d '\r' | sed '/^\s*$/d; /^\s*#/d' > merged.env
 
-          # Remove empty lines and comments
-          sed -i '/^\s*$/d; /^\s*#/d' merged.env
+          # DEBUG: Show cleaned file
+          echo "🔍 Cleaned merged.env:"
+          cat -A merged.env
 
-          # Load env vars into shell
+          # Load env vars safely into shell
           set -o allexport
           source merged.env
           set +o allexport
 
-          # Export only required environment variables for GitHub usage
+          # DEBUG: Show loaded vars
+          echo "Loaded DEV_DEPLOY_REGION: $DEV_DEPLOY_REGION"
+          echo "Loaded DEV_PROJECT_NAME: $DEV_PROJECT_NAME"
+
+          # Export needed vars to GitHub
           echo "DEV_PROJECT_NAME=$DEV_PROJECT_NAME" >> $GITHUB_ENV
           echo "DEV_DEPLOY_REGION=$DEV_DEPLOY_REGION" >> $GITHUB_ENV
           echo "DEV_AI_ARTIFACT_REGISTRY_NAME=$DEV_AI_ARTIFACT_REGISTRY_NAME" >> $GITHUB_ENV
@@ -72,12 +79,21 @@ jobs:
           echo "DEV_DATABASE_INSTANCE=$DEV_DATABASE_INSTANCE" >> $GITHUB_ENV
           echo "DEV_VPC_CONNECTOR=$DEV_VPC_CONNECTOR" >> $GITHUB_ENV
 
-          # Create valid YAML file for Cloud Run (skip quotes inside values)
-          awk -F= '{gsub(/"/, "\\\""); gsub(/^'\''|'\''$/, "", $2); print $1 ": \"" $2 "\"" }' merged.env > env.yaml
+          # Create Cloud Run env.yaml
+          awk -F= '
+            {
+              gsub(/^'\''|'\''$/, "", $2);  # Remove surrounding single quotes
+              gsub(/"/, "\\\"");            # Escape double quotes
+              print $1 ": \"" $2 "\""
+            }' merged.env > env.yaml
 
 
       - name: Print merged.env
         run: cat -A merged.env
+
+      - name: Debug Environment
+        run: env | grep DEV_
+
 
 
       # Step 7: Authenticate with GCP for deployment
