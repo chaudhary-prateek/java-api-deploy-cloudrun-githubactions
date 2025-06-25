@@ -99,8 +99,9 @@ jobs:
       # Step 10: Build and push Docker image
       - name: Build and Push Docker Image
         run: |
-          docker build -t $DEV_DEPLOY_REGION-docker.pkg.dev/$DEV_PROJECT_NAME/$DEV_AI_ARTIFACT_REGISTRY_NAME/dev:${{ steps.get_release.outputs.version }} .
-          docker push $DEV_DEPLOY_REGION-docker.pkg.dev/$DEV_PROJECT_NAME/$DEV_AI_ARTIFACT_REGISTRY_NAME/dev:${{ steps.get_release.outputs.version }}
+          docker build -t $DEV_DEPLOY_REGION-docker.pkg.dev/$DEV_PROJECT_NAME/$DEV_AI_ARTIFACT_REGISTRY_NAME/dev:latest .
+          docker push $DEV_DEPLOY_REGION-docker.pkg.dev/$DEV_PROJECT_NAME/$DEV_AI_ARTIFACT_REGISTRY_NAME/dev:latest
+
 
       # Step 11: Deploy to Cloud Run
       - name: Deploy to Cloud Run
