@@ -78,13 +78,11 @@ jobs:
         run: gcloud auth configure-docker $DEV_DEPLOY_REGION-docker.pkg.dev
 
       # Step 9: Get latest GitHub release version
-      - name: Get Latest Release Version
+      - name: Set Dummy Version for Testing
         id: get_release
         run: |
-          response=$(curl --silent -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" "https://api.github.com/repos/${{ github.repository }}/releases")
-          latest_version=$(echo "$response" | jq -r 'if type=="array" and .[0] then .[0].tag_name else "No Release Found" end')
-          latest_version="${latest_version#v}"
-          echo "version=$latest_version" >> $GITHUB_OUTPUT
+          echo "version=0.0.1-test" >> $GITHUB_OUTPUT
+
 
       # Step 10: Build and push Docker image
       - name: Build and Push Docker Image
