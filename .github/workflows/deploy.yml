@@ -51,18 +51,18 @@ jobs:
       # Step 6: Retrieve and prepare env-vars file
       - name: Retrieve and prepare env-vars file
         run: |
-          # Download merged .env file from Secret Manager
-          #gcloud secrets versions access latest --secret=common > merged.env
-
-          # Normalize line endings and remove carriage returns
+          # Download secret and remove Windows-style line endings
           gcloud secrets versions access latest --secret=common | tr -d '\r' > merged.env
 
-          # Load env vars
+          # Remove empty lines and comments
+          sed -i '/^\s*$/d; /^\s*#/d' merged.env
+
+          # Load env vars into shell
           set -o allexport
           source merged.env
           set +o allexport
-          
-          # Export required env vars to GitHub environment
+
+          # Export only required environment variables for GitHub usage
           echo "DEV_PROJECT_NAME=$DEV_PROJECT_NAME" >> $GITHUB_ENV
           echo "DEV_DEPLOY_REGION=$DEV_DEPLOY_REGION" >> $GITHUB_ENV
           echo "DEV_AI_ARTIFACT_REGISTRY_NAME=$DEV_AI_ARTIFACT_REGISTRY_NAME" >> $GITHUB_ENV
@@ -71,9 +71,9 @@ jobs:
           echo "DEV_DATABASE_INSTANCE=$DEV_DATABASE_INSTANCE" >> $GITHUB_ENV
           echo "DEV_VPC_CONNECTOR=$DEV_VPC_CONNECTOR" >> $GITHUB_ENV
 
+          # Create valid YAML file for Cloud Run (skip quotes inside values)
+          awk -F= '{gsub(/"/, "\\\""); gsub(/^'\''|'\''$/, "", $2); print $1 ": \"" $2 "\"" }' merged.env > env.yaml
 
-          # Convert .env to YAML for Cloud Run
-          awk -F= '{gsub(/"/, "\\\"", $2); print $1 ": \"" $2 "\"" }' merged.env > env.yaml
 
       - name: Print merged.env
         run: cat -A merged.env
