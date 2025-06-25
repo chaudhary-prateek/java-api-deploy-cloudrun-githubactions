@@ -53,6 +53,7 @@ jobs:
         run: |
           # Download secret and remove Windows-style line endings
           gcloud secrets versions access latest --secret=common | tr -d '\r' > merged.env
+          gcloud secrets versions access latest --secret=lang-api | tr -d '\r' > merged.env
 
           # Remove empty lines and comments
           sed -i '/^\s*$/d; /^\s*#/d' merged.env
