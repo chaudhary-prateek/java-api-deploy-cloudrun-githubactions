@@ -1,10 +1,17 @@
 name: Deploy to Cloud Run (Dev)
 
+name: release
+
 on:
-  workflow_run:
-    workflows: ["Release"]
-    types:
-      - completed
+  push:
+    branches:
+      - main
+
+#on:
+#  workflow_run:
+#    workflows: ["Release"]
+#    types:
+#      - completed
 
 jobs:
   deploy:
