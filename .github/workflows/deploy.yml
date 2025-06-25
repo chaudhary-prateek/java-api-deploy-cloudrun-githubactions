@@ -83,7 +83,7 @@ jobs:
       - name: Authenticate with GCP for deploy
         uses: google-github-actions/auth@v1
         with:
-          credentials_json: ${{ secrets.DEV_GCP_READ_SECRET_SA_KEY }}
+          credentials_json: ${{ secrets.DEV_GCP_DEPLOY_SA_KEY }}
 
       # Step 8: Configure Docker to use Artifact Registry
       - name: Configure Docker
