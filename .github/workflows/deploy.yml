@@ -65,19 +65,20 @@ jobs:
       
           echo "🔄 Exporting merged.env to \$GITHUB_ENV..."
           while IFS='=' read -r key value; do
-            # Skip empty or comment lines
+            # Skip blank lines and comments
             [[ -z "$key" || "$key" =~ ^\s*# ]] && continue
           
-            # Trim and remove leading/trailing quotes from both key and value
-            clean_key=$(echo "$key" | sed -E "s/^[[:space:]'\"]+|[[:space:]'\"]+$//g")
-            clean_value=$(echo "$value" | sed -E "s/^[[:space:]'\"]+|[[:space:]'\"]+$//g")
+            # Remove surrounding quotes and trailing $
+            clean_key=$(echo "$key" | sed -E "s/^[\"']+|[\"']+$//g")
+            clean_value=$(echo "$value" | sed -E "s/^[\"']+|[\"']+$//g" | sed 's/\$$//')
           
+            # Export to $GITHUB_ENV
             if [[ "$clean_key" == "DEV_SERVICE_ACCOUNT_KEY" ]]; then
               echo "$clean_key<<EOF" >> "$GITHUB_ENV"
               echo "$clean_value" >> "$GITHUB_ENV"
               echo "EOF" >> "$GITHUB_ENV"
             else
-              echo "$clean_key=$clean_value" >> "$GITHUB_ENV"
+              echo "${clean_key}=${clean_value}" >> "$GITHUB_ENV"
             fi
           done < merged.env
       
@@ -131,18 +132,18 @@ jobs:
       # Step 10: Build and push Docker image
       - name: Build and Push Docker Image
         run: |
-          docker build -t asia-south2-docker.pkg.dev/$DEV_PROJECT_NAME/$DEV_AI_ARTIFACT_REGISTRY_NAME/dev:latest .
-          docker push $DEV_DEPLOY_REGION-docker.pkg.dev/$DEV_PROJECT_NAME/$DEV_AI_ARTIFACT_REGISTRY_NAME/dev:latest
+          docker build -t asia-south2-docker.pkg.dev/mystical-melody-463806-k9/lang-api/dev:latest .
+          docker push asia-south2-docker.pkg.dev/mystical-melody-463806-k9/lang-api/dev:latest
 
 
       # Step 11: Deploy to Cloud Run
       - name: Deploy to Cloud Run
         run: |
           gcloud run deploy $DEV_AI_CLOUD_RUN_FUNCTION_NAME --timeout=600s \
-            --image $asia-south2-docker.pkg.dev/$DEV_PROJECT_NAME/$DEV_AI_ARTIFACT_REGISTRY_NAME/dev:${{ steps.get_release.outputs.version }} \
-            --port=$DEV_AI_SERVER_PORT \
+            --image asia-south2-docker.pkg.dev/mystical-melody-463806-k9/lang-api/dev \
+            --port=8090 \
             --platform managed \
-            --region $DEV_DEPLOY_REGION \
+            --region asia-south2 \
             --allow-unauthenticated \
             --vpc-connector $DEV_VPC_CONNECTOR \
             --add-cloudsql-instances=$DEV_PROJECT_NAME:$DEV_DEPLOY_REGION:$DEV_DATABASE_INSTANCE \
