@@ -48,45 +48,46 @@ jobs:
         with:
           credentials_json: ${{ secrets.DEV_GCP_READ_SECRET_SA_KEY }}
 
-      # Step 6: Retrieve and prepare env-vars file
-      - name: Retrieve and prepare env-vars file
+      # Step 6: Retrieve and Process GCP Secrets
+      - name: 🔐 Merge GCP secrets into env + env.yaml
         run: |
-          # Merge common and service-specific secrets, removing carriage returns and trailing whitespace
-          {
-            gcloud secrets versions access latest --secret=common
-            gcloud secrets versions access latest --secret=lang-api
-          } | tr -d '\r' | sed '/^\s*$/d; /^\s*#/d' > merged.env
-
-          # DEBUG: Show cleaned file
-          echo "🔍 Cleaned merged.env:"
-          cat -A merged.env
-
-          # Load env vars safely into shell
-          set -o allexport
-          source merged.env
-          set +o allexport
-
-          # DEBUG: Show loaded vars
-          echo "Loaded DEV_DEPLOY_REGION: $DEV_DEPLOY_REGION"
-          echo "Loaded DEV_PROJECT_NAME: $DEV_PROJECT_NAME"
-
-          # Export needed vars to GitHub
-          echo "DEV_PROJECT_NAME=$DEV_PROJECT_NAME" >> $GITHUB_ENV
-          echo "DEV_DEPLOY_REGION=$DEV_DEPLOY_REGION" >> $GITHUB_ENV
-          echo "DEV_AI_ARTIFACT_REGISTRY_NAME=$DEV_AI_ARTIFACT_REGISTRY_NAME" >> $GITHUB_ENV
-          echo "DEV_AI_CLOUD_RUN_FUNCTION_NAME=$DEV_AI_CLOUD_RUN_FUNCTION_NAME" >> $GITHUB_ENV
-          echo "DEV_AI_SERVER_PORT=$DEV_AI_SERVER_PORT" >> $GITHUB_ENV
-          echo "DEV_DATABASE_INSTANCE=$DEV_DATABASE_INSTANCE" >> $GITHUB_ENV
-          echo "DEV_VPC_CONNECTOR=$DEV_VPC_CONNECTOR" >> $GITHUB_ENV
-
-          # Create Cloud Run env.yaml
-          awk -F= '
-            {
-              gsub(/^'\''|'\''$/, "", $2);  # Remove surrounding single quotes
-              gsub(/"/, "\\\"");            # Escape double quotes
+          echo "📥 Fetching COMMON_SECRET and SERVICE_SECRET..."
+      
+          # Download both secrets as .env chunks
+          gcloud secrets versions access latest --secret=$common > common.env
+          gcloud secrets versions access latest --secret=$lang-api > service.env
+      
+          echo "🧩 Merging both env files..."
+          cat common.env service.env > merged.env
+      
+          echo "🔍 Merged env file (for Docker):"
+          cat merged.env
+      
+          echo "🔄 Exporting merged.env to \$GITHUB_ENV..."
+          while IFS='=' read -r key value; do
+            # Skip blank lines and comments
+            if [[ "$key" =~ ^\s*$ || "$key" =~ ^\s*# ]]; then continue; fi
+      
+            # Handle service account key safely as multi-line secret
+            if [[ "$key" == "DEV_SERVICE_ACCOUNT_KEY" ]]; then
+              echo "$key<<EOF" >> $GITHUB_ENV
+              echo "$value" >> $GITHUB_ENV
+              echo "EOF" >> $GITHUB_ENV
+            else
+              echo "$key=$value" >> $GITHUB_ENV
+            fi
+          done < merged.env
+      
+          echo "📦 Creating env.yaml for Cloud Run..."
+          sed '/^\s*$/d; /^\s*#/d' merged.env | awk -F '=' '
+            NF==2 {
+              gsub(/^"|"$/, "", $2);  # remove quotes
+              gsub(/"/, "\\\"");      # escape quotes
               print $1 ": \"" $2 "\""
-            }' merged.env > env.yaml
-
+            }' > env.yaml
+      
+          echo "✅ Final env.yaml:"
+          cat env.yaml
 
       - name: Print merged.env
         run: cat -A merged.env
