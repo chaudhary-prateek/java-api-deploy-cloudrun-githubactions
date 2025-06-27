@@ -65,20 +65,20 @@ jobs:
       
           echo "🔄 Exporting merged.env to \$GITHUB_ENV..."
           while IFS='=' read -r key value; do
-            # Skip blank lines and comments
+            # Skip comments and empty lines
             [[ -z "$key" || "$key" =~ ^\s*# ]] && continue
           
-            # Remove surrounding quotes and trailing $
-            clean_key=$(echo "$key" | sed -E "s/^[\"']+|[\"']+$//g")
-            clean_value=$(echo "$value" | sed -E "s/^[\"']+|[\"']+$//g" | sed 's/\$$//')
+            # Remove surrounding quotes
+            key=$(echo "$key" | sed -E 's/^["'\'' ]+|["'\'' ]+$//g')
+            value=$(echo "$value" | sed -E 's/^["'\'' ]+|["'\'' ]+$//g')
           
-            # Export to $GITHUB_ENV
-            if [[ "$clean_key" == "DEV_SERVICE_ACCOUNT_KEY" ]]; then
-              echo "$clean_key<<EOF" >> "$GITHUB_ENV"
-              echo "$clean_value" >> "$GITHUB_ENV"
+            # Special case for multiline secrets
+            if [[ "$key" == "DEV_SERVICE_ACCOUNT_KEY" ]]; then
+              echo "$key<<EOF" >> "$GITHUB_ENV"
+              echo "$value" >> "$GITHUB_ENV"
               echo "EOF" >> "$GITHUB_ENV"
             else
-              echo "${clean_key}=${clean_value}" >> "$GITHUB_ENV"
+              echo "$key=$value" >> "$GITHUB_ENV"
             fi
           done < merged.env
       
@@ -107,10 +107,8 @@ jobs:
         
       - name: 🔍 Debug GITHUB_ENV contents
         run: |
-          echo "📂 GITHUB_ENV file path: $GITHUB_ENV"
-          echo "🔍 Contents:"
-          cat $GITHUB_ENV
-          
+            echo "🔍 Final formatted $GITHUB_ENV:"
+            cat $GITHUB_ENV
 
       # Step 7: Authenticate with GCP for deployment
       - name: Authenticate with GCP for deploy
