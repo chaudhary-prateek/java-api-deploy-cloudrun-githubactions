@@ -90,17 +90,21 @@ jobs:
       
           echo "✅ Final env.yaml:"
           cat env.yaml
+          
+      - name: Print service.env
+        run: cat service.env
 
-      
+        
+      - name: Print merged.env
+        run: cat merged.env
+
+        
       - name: 🔍 Debug GITHUB_ENV contents
         run: |
           echo "📂 GITHUB_ENV file path: $GITHUB_ENV"
           echo "🔍 Contents:"
           cat $GITHUB_ENV
           
-      - name: Print merged.env
-        run: cat merged.env
-
 
       # Step 7: Authenticate with GCP for deployment
       - name: Authenticate with GCP for deploy
