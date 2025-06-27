@@ -66,13 +66,13 @@ jobs:
           echo "🔄 Exporting merged.env to \$GITHUB_ENV..."
           while IFS='=' read -r key value; do
             # Skip comments and blank lines
-            if [[ "$key" =~ ^\s*$ || "$key" =~ ^\s*# ]]; then continue; fi
+            [[ "$key" =~ ^\s*$ || "$key" =~ ^\s*# ]] && continue
           
-            # Trim leading/trailing quotes, spaces, and trailing `$`
-            clean_key=$(echo "$key" | sed -E 's/^["'\''[:space:]]*|["'\''[:space:]]*$//')
-            clean_value=$(echo "$value" | sed -E 's/^["'\''[:space:]]*|["'\''[:space:]]*$//; s/\r//g; s/\$$//')
+            # Remove wrapping single/double quotes and trailing $ or newline
+            clean_key=$(echo "$key" | sed -E 's/^[[:space:]]*//; s/[[:space:]]*$//')
+            clean_value=$(echo "$value" | sed -E 's/^["'\''`]//; s/["'\''`]$//; s/\r$//; s/\$$//')
           
-            # Multi-line secret support
+            # Special case: multiline key
             if [[ "$clean_key" == "DEV_SERVICE_ACCOUNT_KEY" ]]; then
               echo "$clean_key<<EOF" >> "$GITHUB_ENV"
               echo "$clean_value" >> "$GITHUB_ENV"
@@ -132,7 +132,7 @@ jobs:
       # Step 10: Build and push Docker image
       - name: Build and Push Docker Image
         run: |
-          docker build -t $DEV_DEPLOY_REGION-docker.pkg.dev/$DEV_PROJECT_NAME/$DEV_AI_ARTIFACT_REGISTRY_NAME/dev:latest .
+          docker build -t asia-south2-docker.pkg.dev/$DEV_PROJECT_NAME/$DEV_AI_ARTIFACT_REGISTRY_NAME/dev:latest .
           docker push $DEV_DEPLOY_REGION-docker.pkg.dev/$DEV_PROJECT_NAME/$DEV_AI_ARTIFACT_REGISTRY_NAME/dev:latest
 
 
@@ -140,7 +140,7 @@ jobs:
       - name: Deploy to Cloud Run
         run: |
           gcloud run deploy $DEV_AI_CLOUD_RUN_FUNCTION_NAME --timeout=600s \
-            --image $DEV_DEPLOY_REGION-docker.pkg.dev/$DEV_PROJECT_NAME/$DEV_AI_ARTIFACT_REGISTRY_NAME/dev:${{ steps.get_release.outputs.version }} \
+            --image $asia-south2-docker.pkg.dev/$DEV_PROJECT_NAME/$DEV_AI_ARTIFACT_REGISTRY_NAME/dev:${{ steps.get_release.outputs.version }} \
             --port=$DEV_AI_SERVER_PORT \
             --platform managed \
             --region $DEV_DEPLOY_REGION \
