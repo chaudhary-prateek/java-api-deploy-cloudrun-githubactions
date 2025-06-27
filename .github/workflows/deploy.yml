@@ -90,7 +90,7 @@ jobs:
           cat env.yaml
 
       - name: Print merged.env
-        run: cat -A merged.env
+        run: cat merged.env
 
 
       # Step 7: Authenticate with GCP for deployment
