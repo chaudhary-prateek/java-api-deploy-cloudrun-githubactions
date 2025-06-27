@@ -54,14 +54,14 @@ jobs:
           echo "📥 Fetching COMMON_SECRET and SERVICE_SECRET..."
       
           # Download both secrets as .env chunks
-          gcloud secrets versions access latest --secret=$common > common.env
-          gcloud secrets versions access latest --secret=$lang-api > service.env
-      
-          echo "🧩 Merging both env files..."
-          cat common.env service.env > merged.env
-      
-          echo "🔍 Merged env file (for Docker):"
-          cat merged.env
+          {
+            gcloud secrets versions access latest --secret=common
+            gcloud secrets versions access latest --secret=lang-api
+          } | tr -d '\r' | sed '/^\s*$/d; /^\s*#/d' > merged.env
+
+          # DEBUG: Show cleaned file
+          echo "🔍 Cleaned merged.env:"
+          cat -A merged.env
       
           echo "🔄 Exporting merged.env to \$GITHUB_ENV..."
           while IFS='=' read -r key value; do
