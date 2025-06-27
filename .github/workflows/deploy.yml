@@ -65,14 +65,13 @@ jobs:
       
           echo "🔄 Exporting merged.env to \$GITHUB_ENV..."
           while IFS='=' read -r key value; do
-            # Skip comments and blank lines
-            [[ "$key" =~ ^\s*$ || "$key" =~ ^\s*# ]] && continue
+            # Skip empty or comment lines
+            [[ -z "$key" || "$key" =~ ^\s*# ]] && continue
           
-            # Remove wrapping single/double quotes and trailing $ or newline
-            clean_key=$(echo "$key" | sed -E 's/^[[:space:]]*//; s/[[:space:]]*$//')
-            clean_value=$(echo "$value" | sed -E 's/^["'\''`]//; s/["'\''`]$//; s/\r$//; s/\$$//')
+            # Trim and remove leading/trailing quotes from both key and value
+            clean_key=$(echo "$key" | sed -E "s/^[[:space:]'\"]+|[[:space:]'\"]+$//g")
+            clean_value=$(echo "$value" | sed -E "s/^[[:space:]'\"]+|[[:space:]'\"]+$//g")
           
-            # Special case: multiline key
             if [[ "$clean_key" == "DEV_SERVICE_ACCOUNT_KEY" ]]; then
               echo "$clean_key<<EOF" >> "$GITHUB_ENV"
               echo "$clean_value" >> "$GITHUB_ENV"
