@@ -48,53 +48,53 @@ jobs:
         with:
           credentials_json: ${{ secrets.DEV_GCP_READ_SECRET_SA_KEY }}
 
-      # Step 6: Retrieve and Process GCP Secrets
-      - name: 🔐 Merge GCP secrets into env + env.yaml
+      - name: 🔐 Merge GCP secrets into $GITHUB_ENV + lang-api to env.yaml
         run: |
-          echo "📥 Fetching COMMON_SECRET and SERVICE_SECRET..."
+          echo "📥 Fetching COMMON and SERVICE secrets..."
       
-          # Download both secrets as .env chunks
-          {
-            gcloud secrets versions access latest --secret=common
-            echo
-            gcloud secrets versions access latest --secret=lang-api
-          } | tr -d '\r' | grep -v '^\s*#' | grep -v '^\s*$' > merged.env
-
-          # DEBUG: Show cleaned file
-          echo "🔍 Cleaned merged.env:"
+          # Save both secrets separately
+          gcloud secrets versions access latest --secret=common | tr -d '\r' | sed '/^\s*$/d; /^\s*#/d' > common.env
+          gcloud secrets versions access latest --secret=lang-api | tr -d '\r' | sed '/^\s*$/d; /^\s*#/d' > service.env
+      
+          # Merge both into merged.env
+          cat common.env service.env > merged.env
+      
+          echo "🔍 Contents of merged.env (for $GITHUB_ENV):"
           cat -A merged.env
       
           echo "🔄 Exporting merged.env to \$GITHUB_ENV..."
           while IFS='=' read -r key value; do
-            # Skip blank lines and comments
+            # Skip comments and blank lines
             if [[ "$key" =~ ^\s*$ || "$key" =~ ^\s*# ]]; then continue; fi
       
-            # Handle service account key safely as multi-line secret
-            if [[ "$key" == "DEV_SERVICE_ACCOUNT_KEY" ]]; then
-              echo "$key<<EOF" >> $GITHUB_ENV
-              echo "$value" >> $GITHUB_ENV
+            clean_key=$(echo "$key" | sed -E 's/^[\'\"]//; s/[\'\"]$//')
+            clean_value=$(echo "$value" | sed -E 's/^[\'\"]//; s/[\'\"]$//; s/\$$//')
+      
+            if [[ "$clean_key" == "DEV_SERVICE_ACCOUNT_KEY" ]]; then
+              echo "$clean_key<<EOF" >> $GITHUB_ENV
+              echo "$clean_value" >> $GITHUB_ENV
               echo "EOF" >> $GITHUB_ENV
             else
-              echo "$key=$value" >> $GITHUB_ENV
+              echo "$clean_key=$clean_value" >> $GITHUB_ENV
             fi
           done < merged.env
-          cat $GITHUB_ENV
-          
-          echo "📦 Creating env.yaml for Cloud Run..."
-          sed '/^\s*$/d; /^\s*#/d' merged.env | awk -F '=' '
+      
+          echo "📦 Creating env.yaml from only lang-api (service.env)..."
+          sed '/^\s*$/d; /^\s*#/d' service.env | awk -F '=' '
             NF==2 {
-              gsub(/^"|"$/, "", $2);  # remove quotes
-              gsub(/"/, "\\\"");      # escape quotes
+              gsub(/^["'"'"']|["'"'"']$/, "", $2);
+              gsub(/"/, "\\\""); 
               print $1 ": \"" $2 "\""
             }' > env.yaml
       
-          echo "✅ Final env.yaml:"
+          echo "✅ Final env.yaml (Cloud Run runtime only):"
           cat env.yaml
       - name: 🔍 Debug GITHUB_ENV contents
         run: |
           echo "📂 GITHUB_ENV file path: $GITHUB_ENV"
           echo "🔍 Contents:"
           cat $GITHUB_ENV
+          
       - name: Print merged.env
         run: cat merged.env
 
