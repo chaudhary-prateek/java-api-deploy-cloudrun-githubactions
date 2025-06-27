@@ -93,8 +93,8 @@ jobs:
           echo "📂 GITHUB_ENV file path: $GITHUB_ENV"
           echo "🔍 Contents:"
           cat $GITHUB_ENV
-            - name: Print merged.env
-              run: cat merged.env
+      - name: Print merged.env
+        run: cat merged.env
 
 
       # Step 7: Authenticate with GCP for deployment
