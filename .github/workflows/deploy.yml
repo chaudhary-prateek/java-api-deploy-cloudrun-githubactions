@@ -116,7 +116,7 @@ jobs:
 
       # Step 8: Configure Docker to use Artifact Registry
       - name: Configure Docker
-        run: gcloud auth configure-docker $DEV_DEPLOY_REGION-docker.pkg.dev
+        run: gcloud auth configure-docker asia-south2-docker.pkg.dev
 
       # Step 9: Get latest GitHub release version
       - name: Set Dummy Version for Testing
