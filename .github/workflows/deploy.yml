@@ -66,16 +66,17 @@ jobs:
           while IFS='=' read -r key value; do
             # Skip comments and blank lines
             if [[ "$key" =~ ^\s*$ || "$key" =~ ^\s*# ]]; then continue; fi
-      
+          
             clean_key=$(echo "$key" | sed -E 's/^[\'\"]//; s/[\'\"]$//')
             clean_value=$(echo "$value" | sed -E 's/^[\'\"]//; s/[\'\"]$//; s/\$$//')
-      
+          
             if [[ "$clean_key" == "DEV_SERVICE_ACCOUNT_KEY" ]]; then
               echo "$clean_key<<EOF" >> $GITHUB_ENV
               echo "$clean_value" >> $GITHUB_ENV
               echo "EOF" >> $GITHUB_ENV
             else
-              echo "$clean_key=$clean_value" >> $GITHUB_ENV
+              # Use printf with shell-escaped value
+              printf "%s=%q\n" "$clean_key" "$clean_value" >> $GITHUB_ENV
             fi
           done < merged.env
       
