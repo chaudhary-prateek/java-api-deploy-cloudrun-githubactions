@@ -83,13 +83,15 @@ jobs:
           echo "📦 Creating env.yaml from only lang-api (service.env)..."
           sed '/^\s*$/d; /^\s*#/d' service.env | awk -F '=' '
             NF==2 {
-              gsub(/^["'"'"']|["'"'"']$/, "", $2);
-              gsub(/"/, "\\\""); 
+              gsub(/^["'"'"']|["'"'"']$/, "", $2);  # remove surrounding quotes
+              gsub(/"/, "\\\"");                   # escape quotes
               print $1 ": \"" $2 "\""
-            }' > env.yaml
-      
-          echo "✅ Final env.yaml (Cloud Run runtime only):"
+            }
+          ' > env.yaml
+          
+          echo "✅ Final env.yaml:"
           cat env.yaml
+      
       - name: 🔍 Debug GITHUB_ENV contents
         run: |
           echo "📂 GITHUB_ENV file path: $GITHUB_ENV"
