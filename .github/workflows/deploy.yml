@@ -47,7 +47,8 @@ jobs:
         uses: google-github-actions/auth@v1
         with:
           credentials_json: ${{ secrets.DEV_GCP_READ_SECRET_SA_KEY }}
-
+          
+      # Step 6: Retrieve and Process GCP Secrets
       - name: 🔐 Merge GCP secrets into $GITHUB_ENV + lang-api to env.yaml
         run: |
           echo "📥 Fetching COMMON and SERVICE secrets..."
@@ -66,29 +67,30 @@ jobs:
           while IFS='=' read -r key value; do
             # Skip comments and blank lines
             if [[ "$key" =~ ^\s*$ || "$key" =~ ^\s*# ]]; then continue; fi
-          
-            clean_key=$(echo "$key" | sed -E 's/^[\'\"]//; s/[\'\"]$//')
-            clean_value=$(echo "$value" | sed -E 's/^[\'\"]//; s/[\'\"]$//; s/\$$//')
-          
+      
+            clean_key=$(echo "$key" | sed -E 's/^["'\''"]|["'\''"]$//')
+            clean_value=$(echo "$value" | sed -E 's/^["'\''"]|["'\''"]$//; s/\r//g; s/\$$//')
+      
             if [[ "$clean_key" == "DEV_SERVICE_ACCOUNT_KEY" ]]; then
-              echo "$clean_key<<EOF" >> $GITHUB_ENV
-              echo "$clean_value" >> $GITHUB_ENV
-              echo "EOF" >> $GITHUB_ENV
+              echo "$clean_key<<EOF" >> "$GITHUB_ENV"
+              echo "$clean_value" >> "$GITHUB_ENV"
+              echo "EOF" >> "$GITHUB_ENV"
             else
-              echo "$clean_key=$clean_value" >> $GITHUB_ENV
+              echo "$clean_key=$clean_value" >> "$GITHUB_ENV"
             fi
           done < merged.env
       
           echo "📦 Creating env.yaml from only lang-api (service.env)..."
           sed '/^\s*$/d; /^\s*#/d' service.env | awk -F '=' '
             NF==2 {
-              gsub(/^'\''|'\''$/, "", $2);  # Remove single quotes
-              gsub(/"/, "\\\"");            # Escape double quotes
+              gsub(/^["'\''"]|["'\''"]$/, "", $2);  # Remove both quote types
+              gsub(/"/, "\\\"");                   # Escape quotes
               print $1 ": \"" $2 "\""
             }' > env.yaml
-          
+      
           echo "✅ Final env.yaml:"
           cat env.yaml
+
       
       - name: 🔍 Debug GITHUB_ENV contents
         run: |
