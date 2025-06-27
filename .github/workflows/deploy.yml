@@ -56,8 +56,9 @@ jobs:
           # Download both secrets as .env chunks
           {
             gcloud secrets versions access latest --secret=common
+            echo
             gcloud secrets versions access latest --secret=lang-api
-          } | tr -d '\r' | sed '/^\s*$/d; /^\s*#/d' > merged.env
+          } | tr -d '\r' | grep -v '^\s*#' | grep -v '^\s*$' > merged.env
 
           # DEBUG: Show cleaned file
           echo "🔍 Cleaned merged.env:"
@@ -77,7 +78,8 @@ jobs:
               echo "$key=$value" >> $GITHUB_ENV
             fi
           done < merged.env
-      
+          cat $GITHUB_ENV
+          
           echo "📦 Creating env.yaml for Cloud Run..."
           sed '/^\s*$/d; /^\s*#/d' merged.env | awk -F '=' '
             NF==2 {
