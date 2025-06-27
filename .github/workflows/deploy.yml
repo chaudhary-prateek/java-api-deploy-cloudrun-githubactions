@@ -67,10 +67,12 @@ jobs:
           while IFS='=' read -r key value; do
             # Skip comments and blank lines
             if [[ "$key" =~ ^\s*$ || "$key" =~ ^\s*# ]]; then continue; fi
-      
-            clean_key=$(echo "$key" | sed -E 's/^["'\''"]|["'\''"]$//')
-            clean_value=$(echo "$value" | sed -E 's/^["'\''"]|["'\''"]$//; s/\r//g; s/\$$//')
-      
+          
+            # Trim leading/trailing quotes, spaces, and trailing `$`
+            clean_key=$(echo "$key" | sed -E 's/^["'\''[:space:]]*|["'\''[:space:]]*$//')
+            clean_value=$(echo "$value" | sed -E 's/^["'\''[:space:]]*|["'\''[:space:]]*$//; s/\r//g; s/\$$//')
+          
+            # Multi-line secret support
             if [[ "$clean_key" == "DEV_SERVICE_ACCOUNT_KEY" ]]; then
               echo "$clean_key<<EOF" >> "$GITHUB_ENV"
               echo "$clean_value" >> "$GITHUB_ENV"
