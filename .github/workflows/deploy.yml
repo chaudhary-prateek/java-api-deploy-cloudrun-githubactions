@@ -91,9 +91,12 @@ jobs:
           
             echo "$clean_key: \"$escaped_value\""
           done > env.yaml
-          
+
       - name: Print service.env
         run: cat service.env
+        
+      - name: Print service.env
+        run: cat env.yaml
 
         
       - name: Print merged.env
