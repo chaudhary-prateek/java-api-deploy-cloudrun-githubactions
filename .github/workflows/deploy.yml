@@ -64,20 +64,21 @@ jobs:
           cat -A merged.env
       
           echo "🔄 Exporting merged.env to \$GITHUB_ENV..."
-          while IFS='=' read -r key value; do
-            # skip blank lines/comments
-            [[ "$key" =~ ^\s*$ || "$key" =~ ^\s*# ]] && continue
+          while IFS='=' read -r raw_key raw_value || [[ -n "$raw_key" ]]; do
+            # Skip comments and blank lines
+            [[ "$raw_key" =~ ^\s*$ || "$raw_key" =~ ^\s*# ]] && continue
           
-            key=$(echo "$key" | xargs) # trim whitespace
-            value=$(echo "$value" | xargs) # trim whitespace
+            # Remove surrounding whitespace and quotes
+            key=$(echo "$raw_key" | sed -E 's/^[[:space:]]*//; s/[[:space:]]*$//; s/^["'"'"']?(.*?)["'"'"']?$/\1/')
+            value=$(echo "$raw_value" | sed -E 's/^[[:space:]]*//; s/[[:space:]]*$//; s/^["'"'"']?(.*?)["'"'"']?$/\1/')
           
-            # Multiline keys (like service account JSON)
+            # Multiline secrets (optional)
             if [[ "$key" == "DEV_SERVICE_ACCOUNT_KEY" ]]; then
-              echo "$key<<EOF" >> $GITHUB_ENV
-              echo "$value" >> $GITHUB_ENV
-              echo "EOF" >> $GITHUB_ENV
+              echo "$key<<EOF" >> "$GITHUB_ENV"
+              echo "$value" >> "$GITHUB_ENV"
+              echo "EOF" >> "$GITHUB_ENV"
             else
-              printf "%s=%s\n" "$key" "$value" >> $GITHUB_ENV
+              echo "$key=$value" >> "$GITHUB_ENV"
             fi
           done < merged.env
       
