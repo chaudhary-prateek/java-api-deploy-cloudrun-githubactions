@@ -83,11 +83,10 @@ jobs:
           echo "📦 Creating env.yaml from only lang-api (service.env)..."
           sed '/^\s*$/d; /^\s*#/d' service.env | awk -F '=' '
             NF==2 {
-              gsub(/^["'"'"']|["'"'"']$/, "", $2);  # remove surrounding quotes
-              gsub(/"/, "\\\"");                   # escape quotes
+              gsub(/^'\''|'\''$/, "", $2);  # Remove single quotes
+              gsub(/"/, "\\\"");            # Escape double quotes
               print $1 ": \"" $2 "\""
-            }
-          ' > env.yaml
+            }' > env.yaml
           
           echo "✅ Final env.yaml:"
           cat env.yaml
