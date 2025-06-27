@@ -65,20 +65,19 @@ jobs:
       
           echo "🔄 Exporting merged.env to \$GITHUB_ENV..."
           while IFS='=' read -r key value; do
-            # Skip comments and empty lines
-            [[ -z "$key" || "$key" =~ ^\s*# ]] && continue
+            # skip blank lines/comments
+            [[ "$key" =~ ^\s*$ || "$key" =~ ^\s*# ]] && continue
           
-            # Remove surrounding quotes
-            key=$(echo "$key" | sed -E 's/^["'\'' ]+|["'\'' ]+$//g')
-            value=$(echo "$value" | sed -E 's/^["'\'' ]+|["'\'' ]+$//g')
+            key=$(echo "$key" | xargs) # trim whitespace
+            value=$(echo "$value" | xargs) # trim whitespace
           
-            # Special case for multiline secrets
+            # Multiline keys (like service account JSON)
             if [[ "$key" == "DEV_SERVICE_ACCOUNT_KEY" ]]; then
-              echo "$key<<EOF" >> "$GITHUB_ENV"
-              echo "$value" >> "$GITHUB_ENV"
-              echo "EOF" >> "$GITHUB_ENV"
+              echo "$key<<EOF" >> $GITHUB_ENV
+              echo "$value" >> $GITHUB_ENV
+              echo "EOF" >> $GITHUB_ENV
             else
-              echo "$key=$value" >> "$GITHUB_ENV"
+              printf "%s=%s\n" "$key" "$value" >> $GITHUB_ENV
             fi
           done < merged.env
       
