@@ -81,15 +81,16 @@ jobs:
           done < merged.env
       
           echo "📦 Creating env.yaml from only lang-api (service.env)..."
-          sed '/^\s*$/d; /^\s*#/d' service.env | awk -F '=' '
-            NF==2 {
-              gsub(/^["'\''"]|["'\''"]$/, "", $2);  # Remove both quote types
-              gsub(/"/, "\\\"");                   # Escape quotes
-              print $1 ": \"" $2 "\""
-            }' > env.yaml
-      
-          echo "✅ Final env.yaml:"
-          cat env.yaml
+          sed '/^\s*$/d; /^\s*#/d' service.env | while IFS='=' read -r key value; do
+            # Clean key and value
+            clean_key=$(echo "$key" | sed -E 's/^["'\''[:space:]]*|["'\''[:space:]]*$//')
+            clean_value=$(echo "$value" | sed -E 's/^["'\''[:space:]]*|["'\''[:space:]]*$//; s/\r//g; s/\$$//')
+          
+            # Escape inner quotes in value
+            escaped_value=$(echo "$clean_value" | sed -E 's/"/\\"/g')
+          
+            echo "$clean_key: \"$escaped_value\""
+          done > env.yaml
           
       - name: Print service.env
         run: cat service.env
