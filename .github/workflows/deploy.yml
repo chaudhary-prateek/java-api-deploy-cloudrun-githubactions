@@ -4,7 +4,7 @@ name: 🚀 Deploy Java Module to Cloud Run (Dev)
 on:
   push:
     branches:
-      - main
+      - cicd-test
 
 jobs:
   deploy:
@@ -67,7 +67,9 @@ jobs:
         run: |
           echo "📥 Fetching COMMON and SERVICE secrets..."
 
+          # Fetch service account key from secret manager.
           DEV_SERVICE_ACCOUNT_KEY=$(gcloud secrets versions access latest --secret=DEV_SERVICE_ACCOUNT_KEY)
+          
           # Export service account key as multi-line syntax
           echo "DEV_SERVICE_ACCOUNT_KEY<<EOF" >> $GITHUB_ENV
           echo "$DEV_SERVICE_ACCOUNT_KEY" >> $GITHUB_ENV
