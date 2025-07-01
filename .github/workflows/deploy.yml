@@ -1,36 +1,50 @@
-name: Deploy to Cloud Run (Dev)
+#backup of workflow file it is working fine
+name: 🚀 Deploy Java Module to Cloud Run (Dev)
 
 on:
   push:
     branches:
       - main
 
-#on:
-#  workflow_run:
-#    workflows: ["Release"]
-#    types:
-#      - completed
+jobs:
+  deploy:
+    name: Deploy to Cloud Run
+    runs-on: ubuntu-latest
+
+    env:
+      ENV_YAML_FILE: env.yaml
+name: 🚀 Deploy Java Module to Cloud Run (Dev)
+
+on:
+  push:
+    branches:
+      - cicd-test
 
 jobs:
   deploy:
-    name: Deploy to GCP Cloud Run
+    name: Deploy to Cloud Run
     runs-on: ubuntu-latest
-    #needs: [release]
+
+    env:
+    # COMMON_SECRET: COMMON_SECRET
+    # MODULE_SECRET: ih-ai-service
+    # MERGED_ENV_FILE: merged.env
+      ENV_YAML_FILE: env.yaml
 
     steps:
-      # Step 1: Checkout the code
-      - name: Checkout code
+      # Step 1: Checkout
+      - name: 📥 Checkout code
         uses: actions/checkout@v3
 
-      # Step 2: Set up Java (JDK 17)
-      - name: Set up JDK 17
+      # Step 2: Setup Java 17
+      - name: ☕ Set up Java 17
         uses: actions/setup-java@v3
         with:
           java-version: '17'
           distribution: 'temurin'
 
-      # Step 3: Cache Maven dependencies
-      - name: Cache Maven dependencies
+      # Step 3: Cache Maven
+      - name: 📦 Cache Maven dependencies
         uses: actions/cache@v3
         with:
           path: ~/.m2
@@ -38,109 +52,197 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-maven-
 
-      # Step 4: Build the application
-      - name: Build with Maven
+      # Step 4: Build App
+      - name: 🏗️ Build Java App
         run: mvn clean package -Dmaven.test.skip=true
 
       # Step 5: Authenticate with GCP to read secrets
-      - name: Authenticate with GCP to read secrets
+      - name: 🔐 Authenticate to read GCP secrets
         uses: google-github-actions/auth@v1
         with:
           credentials_json: ${{ secrets.DEV_GCP_READ_SECRET_SA_KEY }}
-          
-      - name: 🔐 Merge GCP secrets into $GITHUB_ENV + lang-api to env.yaml
+        
+      # Step 6.1: Retrieve secrets from GCP Secret Manager
+      - name: 🔐 Merge GCP secrets into $GITHUB_ENV + service.env to env.yaml
         run: |
           echo "📥 Fetching COMMON and SERVICE secrets..."
-      
-          # Save both secrets
-          gcloud secrets versions access latest --secret=common | tr -d '\r' | sed '/^\s*$/d; /^\s*#/d' > common.env
-          gcloud secrets versions access latest --secret=lang-api | tr -d '\r' | sed '/^\s*$/d; /^\s*#/d' > service.env
-      
-          # Merge both
+
+          DEV_SERVICE_ACCOUNT_KEY=$(gcloud secrets versions access latest --secret=DEV_SERVICE_ACCOUNT_KEY)
+          # Export service account key as multi-line syntax
+          echo "DEV_SERVICE_ACCOUNT_KEY<<EOF" >> $GITHUB_ENV
+          echo "$DEV_SERVICE_ACCOUNT_KEY" >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
+
+          # Fetch COMMON and SERVICE secrets
+          gcloud secrets versions access latest --secret=COMMON_SECRET | tr -d '\r' | sed '/^\s*$/d; /^\s*#/d' > common.env
+          gcloud secrets versions access latest --secret=SERVICE_SECRET | tr -d '\r' | sed '/^\s*$/d; /^\s*#/d' > service.env
+
+
+          # Merge common + service.env
           cat common.env service.env > merged.env
-      
-          echo "🔍 Contents of merged.env:"
-          cat merged.env
-      
-          echo "🔄 Exporting to \$GITHUB_ENV"
+
+          echo "🔄 Exporting merged.env to \$GITHUB_ENV and JSON if needed..."
           while IFS= read -r line || [[ -n "$line" ]]; do
             [[ "$line" =~ ^\s*$ || "$line" =~ ^\s*# ]] && continue
-      
+
             key="${line%%=*}"
             value="${line#*=}"
-      
-            # Strip quotes and trailing $
+
             key=$(echo "$key" | sed -E 's/^["'\''[:space:]]*|["'\''[:space:]]*$//g')
-            value=$(echo "$value" | sed -E 's/^["'\''[:space:]]*|["'\''[:space:]]*$//g; s/\$//g')
-      
-            # Multiline secret support
-            if [[ "$key" == "DEV_SERVICE_ACCOUNT_KEY" ]]; then
-              echo "$key<<EOF" >> "$GITHUB_ENV"
-              echo "$value" >> "$GITHUB_ENV"
-              echo "EOF" >> "$GITHUB_ENV"
-            else
-              echo "$key=$value" >> "$GITHUB_ENV"
-            fi
+            value=$(echo "$value" | sed -E 's/^["'\''[:space:]]*|["'\''[:space:]]*$//g')
+            echo "::add-mask::$value"        # ✅ Mask the value from logs
+            echo "$key=$value" >> "$GITHUB_ENV"
           done < merged.env
-      
-          echo "📦 Creating env.yaml from lang-api"
+
+          echo "📦 Creating env.yaml from service.env for Cloud Run..."
           sed '/^\s*$/d; /^\s*#/d' service.env | while IFS='=' read -r k v; do
             k=$(echo "$k" | sed -E 's/^["'\''[:space:]]*|["'\''[:space:]]*$//g')
             v=$(echo "$v" | sed -E 's/^["'\''[:space:]]*|["'\''[:space:]]*$//g; s/"/\\"/g')
             echo "$k: \"$v\""
           done > env.yaml
-      
-          echo "✅ Final env.yaml:"
-          cat env.yaml
 
+         #echo "✅ Final env.yaml:"
+         #cat env.yaml
 
-      - name: Print service.env
-        run: cat service.env
-        
-      - name: Print service.env
-        run: cat env.yaml
-
-        
-      - name: Print merged.env
-        run: cat merged.env
-
-        
-      - name: 🔍 Debug GITHUB_ENV contents
-        run: cat $GITHUB_ENV
-
-      # Step 7: Authenticate with GCP for deployment
-      - name: Authenticate with GCP for deploy
+      # Step 7: Authenticate for Deploy
+      - name: 🔑 Authenticate to deploy
         uses: google-github-actions/auth@v1
         with:
-          credentials_json: ${{ secrets.DEV_GCP_DEPLOY_SA_KEY }}
+          credentials_json: ${{ env.DEV_SERVICE_ACCOUNT_KEY }}
 
-      # Step 8: Configure Docker to use Artifact Registry
-      - name: Configure Docker
-        run: gcloud auth configure-docker asia-south2-docker.pkg.dev
+      # Step 8: Configure Docker for Artifact Registry
+      - name: ⚙️ Configure Docker
+        run: gcloud auth configure-docker $DEV_DEPLOY_REGION-docker.pkg.dev
 
-      # Step 9: Get latest GitHub release version
-      - name: Set Dummy Version for Testing
-        id: get_release
+      # Step 9: Optional Version Tag
+      - name: 🏷️ Set Image Tag
+        id: version
+        run: echo "version=latest" >> $GITHUB_OUTPUT
+
+      # Step 10: Build & Push Image
+      - name: 🐳 Build & Push Docker Image
         run: |
-          echo "version=latest" >> $GITHUB_OUTPUT
-
-
-      # Step 10: Build and push Docker image
-      - name: Build and Push Docker Image
-        run: |
-          docker build -t asia-south2-docker.pkg.dev/mystical-melody-463806-k9/lang-api/dev:latest .
-          docker push asia-south2-docker.pkg.dev/mystical-melody-463806-k9/lang-api/dev:latest
-
+          IMAGE_URI=$DEV_DEPLOY_REGION-docker.pkg.dev/$DEV_PROJECT_NAME/$DEV_AI_ARTIFACT_REGISTRY_NAME/dev:latest
+          docker build -t $IMAGE_URI .
+          docker push $IMAGE_URI
+          echo "IMAGE_URI=$IMAGE_URI" >> $GITHUB_ENV
 
       # Step 11: Deploy to Cloud Run
-      - name: Deploy to Cloud Run
+      - name: 🚀 Deploy to Cloud Run
         run: |
-          gcloud run deploy $DEV_AI_CLOUD_RUN_FUNCTION_NAME --timeout=600s \
-            --image asia-south2-docker.pkg.dev/mystical-melody-463806-k9/lang-api/dev \
-            --port=8090 \
-            --platform managed \
-            --region asia-south2 \
+          gcloud run deploy $DEV_AI_CLOUD_RUN_FUNCTION_NAME \
+            --image $IMAGE_URI \
+            --region $DEV_DEPLOY_REGION \
+            --port=$SERVER_PORT \
+            --platform=managed \
+            --timeout=600s \
             --allow-unauthenticated \
-            --vpc-connector $DEV_VPC_CONNECTOR \
+            --vpc-connector=$DEV_VPC_CONNECTOR \
             --add-cloudsql-instances=$DEV_PROJECT_NAME:$DEV_DEPLOY_REGION:$DEV_DATABASE_INSTANCE \
-            --env-vars-file env.yaml
+            --env-vars-file $ENV_YAML_FILE
+
+      # Step 12: Clean up
+      - name: 🧹 Clean Workspace
+        run: rm -f env.yaml common.env service.env merged.env
+
+    steps:
+      # Step 1: Checkout repository
+      - name: 📥 Checkout code
+        uses: actions/checkout@v3
+
+      # Step 2: Set up Java 17
+      - name: ☕ Set up Java 17
+        uses: actions/setup-java@v3
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      # Step 3: Cache Maven dependencies
+      - name: 📦 Cache Maven dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.m2
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: ${{ runner.os }}-maven-
+
+      # Step 4: Build Java App
+      - name: 🏗️ Build Java App
+        run: mvn clean package -Dmaven.test.skip=true
+
+      # Step 5: Authenticate to read secrets from GCP
+      - name: 🔐 Authenticate to read GCP secrets
+        uses: google-github-actions/auth@v1
+        with:
+          credentials_json: ${{ secrets.DEV_GCP_READ_SECRET_SA_KEY }}
+
+      # Step 6: Fetch secrets and prepare env files
+      - name: 🧪 Merge secrets & create .env and env.yaml
+        run: |
+          echo "📥 Fetching COMMON and SERVICE secrets..."
+
+          # Fetch service account key
+          gcloud secrets versions access latest --secret=DEV_SERVICE_ACCOUNT_KEY > dev_sa_key.json
+
+          # Export to $GITHUB_ENV as multi-line variable
+          echo "DEV_SERVICE_ACCOUNT_KEY<<EOF" >> $GITHUB_ENV
+          cat dev_sa_key.json >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
+
+          # Fetch and clean .env secrets
+          gcloud secrets versions access latest --secret=COMMON_SECRET | tr -d '\r' | sed '/^\s*$/d; /^\s*#/d' > common.env
+          gcloud secrets versions access latest --secret=SERVICE_SECRET | tr -d '\r' | sed '/^\s*$/d; /^\s*#/d' > service.env
+
+          # Merge .env files
+          cat common.env service.env > merged.env
+
+          echo "🔄 Exporting merged.env to \$GITHUB_ENV..."
+          while IFS= read -r line || [[ -n "$line" ]]; do
+            [[ "$line" =~ ^\s*$ || "$line" =~ ^\s*# ]] && continue
+            key="${line%%=*}"
+            value="${line#*=}"
+            echo "$key=$value" >> $GITHUB_ENV
+          done < merged.env
+
+          # Generate Cloud Run env.yaml
+          echo "📦 Creating env.yaml from service.env..."
+          sed '/^\s*$/d; /^\s*#/d' service.env | while IFS='=' read -r k v; do
+            k=$(echo "$k" | sed -E 's/^\s*|\s*$//g')
+            v=$(echo "$v" | sed -E 's/^\s*|\s*$//g; s/"/\\"/g')
+            echo "$k: \"$v\""
+          done > env.yaml
+
+      # Step 7: Authenticate for deployment using exported service account
+      - name: 🔑 Authenticate to deploy
+        uses: google-github-actions/auth@v1
+        with:
+          credentials_json: ${{ env.DEV_SERVICE_ACCOUNT_KEY }}
+
+      # Step 8: Configure Docker for Artifact Registry
+      - name: ⚙️ Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker $DEV_DEPLOY_REGION-docker.pkg.dev
+
+      # Step 9: Build and Push Docker image
+      - name: 🐳 Build and Push Docker Image
+        run: |
+          IMAGE_URI=$DEV_DEPLOY_REGION-docker.pkg.dev/$DEV_PROJECT_NAME/$DEV_AI_ARTIFACT_REGISTRY_NAME/dev:latest
+          docker build -t $IMAGE_URI .
+          docker push $IMAGE_URI
+          echo "IMAGE_URI=$IMAGE_URI" >> $GITHUB_ENV
+
+      # Step 10: Deploy to Cloud Run
+      - name: 🚀 Deploy to Cloud Run
+        run: |
+          gcloud run deploy $DEV_AI_CLOUD_RUN_FUNCTION_NAME \
+            --image $IMAGE_URI \
+            --region $DEV_DEPLOY_REGION \
+            --port=$SERVER_PORT \
+            --platform=managed \
+            --timeout=600s \
+            --allow-unauthenticated \
+            --vpc-connector=$DEV_VPC_CONNECTOR \
+            --add-cloudsql-instances=$DEV_PROJECT_NAME:$DEV_DEPLOY_REGION:$DEV_DATABASE_INSTANCE \
+            --env-vars-file $ENV_YAML_FILE
+
+      # Step 11: Cleanup temporary files
+      - name: 🧹 Clean up temporary files
+        run: rm -f env.yaml common.env service.env merged.env dev_sa_key.json
